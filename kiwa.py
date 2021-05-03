@@ -1,13 +1,44 @@
 import socket
 import time
 import json
-import schedule
 import sounddevice as sd
 import numpy as np
 
 server = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
 server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server.settimeout(0.2)
+server.settimeout(0.002)
+
+listA = [
+'192.168.1.67',
+'192.168.1.56',
+'192.168.1.73',
+'192.168.1.60',
+'192.168.1.38',
+'192.168.1.49',
+'192.168.1.44',
+'192.168.1.58',
+'192.168.1.74',
+'192.168.1.51',
+'192.168.1.69',
+'192.168.1.41',
+'192.168.1.72'
+]
+
+listB = [
+'192.168.1.71',
+'192.168.1.75',
+'192.168.1.47',
+'192.168.1.16',
+'192.168.1.23',
+'192.168.1.89',
+'192.168.1.64',
+'192.168.1.46',
+'192.168.1.66',
+'192.168.1.45',
+'192.168.1.65'
+]
+
+nextUpdate = time.time()
 
 def createMessage(intensity):
     '''
@@ -28,17 +59,35 @@ def createMessage(intensity):
     messageB.extend(map(ord,message))
     return messageB
 
-def sendColor(indata, outdata, frames, time, status):
-    vol_norm1=np.linalg.norm(indata[0])*200
-    vol_norm2=np.linalg.norm(indata[1])*200
-    schedule.run_pending()
-    msg1 = createMessage(vol_norm1-20)
-    msg2 = createMessage(vol_norm2-20)
-    server.sendto(msg1, ('192.168.2.2',30001))
-    server.sendto(msg2, ('192.168.2.190',30001))
-    sd.sleep(50)
+def updateColor(indata):
 
-with sd.Stream(callback=sendColor):
+    vol_norm1=np.linalg.norm(indata[0])
+    vol_norm2=np.linalg.norm(indata[1])
+    msg1 = createMessage(vol_norm1*200-20)
+    msg2 = createMessage(vol_norm2*200-20)
+
+    for lampIp in listA:
+         server.sendto(msg1, (lampIp,30001))
+
+    for lampIp in listB:
+        server.sendto(msg2, (lampIp,30001))
+
+
+
+def streamEvent(indata, outdata, frames, ltime, status):
+    global nextUpdate
+
+
+    currentTime = time.time()
+    if currentTime < nextUpdate:
+        time.sleep(0.1)
+        return
+
+    nextUpdate = currentTime + 0.1
+    updateColor(indata)
+
+
+with sd.Stream(callback=streamEvent):
     while 1:
         pass
     #sd.sleep(20 * 1000)
